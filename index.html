@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brownsville Survival: The Health & Poverty Simulator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text-main); line-height: 1.5; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+    header { text-align: center; border-bottom: 1px solid var(--card-border); padding-bottom: 15px; }
+    header h1 { font-size: 1.75rem; color: var(--text-main); }
+    header p { color: var(--text-muted); font-size: 0.95rem; }
+
+    /* Dashboard Grid */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-val { font-size: 1.4rem; font-weight: bold; margin-top: 4px; }
+    .progress-bar { width: 100%; height: 6px; background: #334155; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 50%; transition: width 0.3s ease; }
+
+    /* Layout Sections */
+    .game-area { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .game-area { grid-template-columns: 1fr; } }
+
+    .main-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+    .side-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+    h2 { font-size: 1.2rem; border-bottom: 1px solid var(--card-border); padding-bottom: 8px; color: var(--accent); }
+
+    /* Action Buttons */
+    .action-grid { display: flex; flex-direction: column; gap: 10px; }
+    button {
+      background: #334155;
+      color: var(--text-main);
+      border: 1px solid #475569;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-badge { font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; }
+
+    /* Shop Grid */
+    .shop-items { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 260px; overflow-y: auto; }
+    .shop-item { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; }
+    .shop-item-info { font-size: 0.85rem; }
+    .shop-item-info span { display: block; color: var(--text-muted); font-size: 0.75rem; }
+
+    /* Log Feed & Fact Box */
+    .log-container { background: #0f172a; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.85rem; height: 200px; overflow-y: auto; border: 1px solid #334155; }
+    .log-entry { margin-bottom: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+    .log-day { color: var(--accent); }
+
+    .fact-card { background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--accent); padding: 10px; font-size: 0.85rem; border-radius: 0 4px 4px 0; }
+    .fact-card strong { color: var(--accent); display: block; margin-bottom: 2px; }
+
+    /* Modal / Alert Overlay */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .modal-card { background: var(--card-bg); border: 1px solid var(--accent); border-radius: 8px; max-width: 550px; width: 100%; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Brownsville Health & Survival Sim</h1>
+    <p>Manage a family of 4 in Brownsville, TX. Balance poverty, bulk nutrition, and physical fitness over 30 days.</p>
+  </header>
+
+  <!-- DASHBOARD STATS -->
+  <div class="dashboard">
+    <div class="stat-card">
+      <div class="stat-label">Day & Time</div>
+      <div class="stat-val" id="day-val">Day 1 / 30</div>
+      <div style="font-size: 0.8rem; color: var(--accent);" id="phase-val">Work Shift</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Cash on Hand</div>
+      <div class="stat-val" id="cash-val">$145.00</div>
+      <div style="font-size: 0.75rem; color: var(--warning);" id="rent-warning">Rent due in 6 days</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Physical Health</div>
+      <div class="stat-val" id="health-val">58%</div>
+      <div class="progress-bar"><div class="progress-fill" id="health-fill" style="background: var(--success);"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Energy / Stamina</div>
+      <div class="stat-val" id="energy-val">65%</div>
+      <div class="progress-bar"><div class="progress-fill" id="energy-fill" style="background: var(--accent);"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Family Stress</div>
+      <div class="stat-val" id="stress-val">45%</div>
+      <div class="progress-bar"><div class="progress-fill" id="stress-fill" style="background: var(--danger);"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pantry Stock</div>
+      <div class="stat-val" id="food-val">2 Meals</div>
+      <div style="font-size: 0.75rem; color: var(--text-muted);" id="cert-val">Tech Class: 0/12</div>
+    </div>
+  </div>
+
+  <!-- MAIN GAME AREA -->
+  <div class="game-area">
+    <div class="main-panel">
+      <h2 id="phase-title">Morning Shift & Work Selection</h2>
+      <p id="scenario-desc" style="font-size: 0.95rem; color: #cbd5e1;">
+        It is 7:00 AM. You have an 8-hour shift at the retail warehouse. How do you approach today's work?
+      </p>
+
+      <div class="action-grid" id="action-buttons">
+        <!-- Injected dynamically based on phase -->
+      </div>
+
+      <div class="fact-card" id="data-fact">
+        <strong>Public Health Context</strong>
+        Brownsville's poverty rate hovers around 25–35%, and over 32% of non-elderly residents lack health insurance, creating severe structural barriers to formal fitness and preventative care.
+      </div>
+    </div>
+
+    <!-- SIDE PANEL: SHOP & INVENTORY -->
+    <div class="side-panel">
+      <h2>Discount Grocery & Essentials</h2>
+      <div class="shop-items">
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <strong>Bulk Staples Pack</strong> ($18)
+            <span>Pinto beans, brown rice, oats (6 meals)</span>
+          </div>
+          <button style="padding: 6px 10px; font-size: 0.8rem;" onclick="buyItem('bulk')">Buy</button>
+        </div>
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <strong>Processed Box Food</strong> ($14)
+            <span>Mac & cheese, frozen nuggets (3 meals)</span>
+          </div>
+          <button style="padding: 6px 10px; font-size: 0.8rem;" onclick="buyItem('junk')">Buy</button>
+        </div>
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <strong>Fresh Greens & Citrus</strong> ($25)
+            <span>Spinach, oranges, berries (3 meals)</span>
+          </div>
+          <button style="padding: 6px 10px; font-size: 0.8rem;" onclick="buyItem('fresh')">Buy</button>
+        </div>
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <strong>Generic Pharmacy OTC</strong> ($12)
+            <span>Pain / fever reducers for family</span>
+          </div>
+          <button style="padding: 6px 10px; font-size: 0.8rem;" onclick="buyItem('meds')">Buy</button>
+        </div>
+      </div>
+
+      <h2>Activity Log</h2>
+      <div class="log-container" id="game-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div class="modal-overlay" id="event-modal">
+  <div class="modal-card">
+    <h2 id="modal-title" style="color: var(--warning);">Daily Dilemma</h2>
+    <p id="modal-desc" style="font-size: 0.95rem; color: var(--text-main);"></p>
+    <div class="action-grid" id="modal-actions"></div>
+  </div>
+</div>
+
+<script>
+  // Initial Game State
+  const state = {
+    day: 1,
+    maxDays: 30,
+    phase: "work", // "work", "evening", "event"
+    cash: 145,
+    health: 58,
+    energy: 65,
+    stress: 45,
+    foodMeals: 2,
+    hasMeds: false,
+    techCertSessions: 0,
+    eveningPointsLeft: 3,
+    rentDueDay: 7,
+    rentAmount: 650,
+    overtimeWorkedToday: false,
+    history: []
+  };
+
+  const facts = [
+    "Over 47% of adults in Brownsville are classified as obese, heavily influenced by regional food deserts and low walkability.",
+    "A 2026 American Fitness Index study placed Austin #2 fittest in Texas, while lower-income South Texas hubs faced severe infrastructure gaps.",
+    "Running AC units in poorly insulated South Texas apartments during summer heatwaves can easily add $200–$300/mo to electric bills.",
+    "Ultra-processed shelf-stable foods offer the highest cost-per-calorie, making them a common economic survival strategy under poverty.",
+    "Mutual aid networks and multi-family child swapping are critical informal safety nets in working-class communities."
+  ];
+
+  function log(msg) {
+    const logBox = document.getElementById("game-log");
+    const entry = document.createElement("div");
+    entry.className = "log-entry";
+    entry.innerHTML = `<span class="log-day">[Day ${state.day}]</span> ${msg}`;
+    logBox.prepend(entry);
+  }
+
+  function updateUI() {
+    document.getElementById("day-val").innerText = `Day ${state.day} / ${state.maxDays}`;
+    document.getElementById("phase-val").innerText = state.phase === 'work' ? 'Morning Shift' : 'Evening Routine';
+    document.getElementById("cash-val").innerText = `$${state.cash.toFixed(2)}`;
+    document.getElementById("health-val").innerText = `${state.health}%`;
+    document.getElementById("health-fill").style.width = `${state.health}%`;
+    document.getElementById("energy-val").innerText = `${state.energy}%`;
+    document.getElementById("energy-fill").style.width = `${state.energy}%`;
+    document.getElementById("stress-val").innerText = `${state.stress}%`;
+    document.getElementById("stress-fill").style.width = `${state.stress}%`;
+    document.getElementById("food-val").innerText = `${state.foodMeals} Meals`;
+    document.getElementById("cert-val").innerText = `Tech Class: ${state.techCertSessions}/12`;
+
+    const daysUntilRent = state.rentDueDay - state.day;
+    document.getElementById("rent-warning").innerText = daysUntilRent > 0 ? `Rent ($${state.rentAmount}) due in ${daysUntilRent} days` : `Rent ($${state.rentAmount}) due TODAY!`;
+
+    // Health / Energy thresholds
+    if (state.health <= 0) return triggerGameOver("Hospitalized: Chronic exhaustion and malnutrition caused systemic collapse.");
+    if (state.cash < 0) return triggerGameOver("Eviction Notice: You went bankrupt and could not sustain basic living expenses.");
+    if (state.stress >= 100) return triggerGameOver("Burnout: Extreme psychological distress caused a complete nervous breakdown.");
+
+    renderPhase();
+  }
+
+  function renderPhase() {
+    const actionBox = document.getElementById("action-buttons");
+    const title = document.getElementById("phase-title");
+    const desc = document.getElementById("scenario-desc");
+    actionBox.innerHTML = "";
+
+    // Show random educational fact
+    document.getElementById("data-fact").innerHTML = `<strong>Public Health Context</strong>${facts[state.day % facts.length]}`;
+
+    if (state.phase === "work") {
+      title.innerText = "Morning: Shift & Income Choice";
+      desc.innerText = "You have an 8-hour floor shift at the warehouse. Will you push extra hours or protect your stamina?";
+
+      actionBox.innerHTML = `
+        <button onclick="handleWork('standard')">
+          <span>Standard 8-hr Shift (+$70)</span>
+          <span class="btn-badge">-20 Energy</span>
+        </button>
+        <button onclick="handleWork('overtime')">
+          <span>8-hr Shift + 3-hr Overtime (+$115)</span>
+          <span class="btn-badge">-40 Energy, +10 Stress</span>
+        </button>
+        <button onclick="handleWork('plasma')">
+          <span>Standard Shift + Donate Plasma (+$135)</span>
+          <span class="btn-badge">-45 Energy, -5 Health</span>
+        </button>
+      `;
+    } else if (state.phase === "evening") {
+      title.innerText = `Evening: Home Time (${state.eveningPointsLeft} Points Left)`;
+      desc.innerText = "You're in your apartment with the kids. Allocate your remaining energy and time points before nightfall.";
+
+      actionBox.innerHTML = `
+        <button ${state.foodMeals < 1 ? 'disabled' : ''} onclick="handleEvening('cook')">
+          <span>Cook Bulk Whole Food & Eat With Kids</span>
+          <span class="btn-badge">1 Pt | +3 Health, -1 Meal, -10 Energy</span>
+        </button>
+        <button onclick="handleEvening('workout')">
+          <span>Living Room Calisthenics & Cardio with Kids</span>
+          <span class="btn-badge">1 Pt | +5 Health, -15 Energy, -5 Stress</span>
+        </button>
+        <button onclick="handleEvening('mindfulness')">
+          <span>Family Meditation & 1-Hr Library Reading</span>
+          <span class="btn-badge">1 Pt | -15 Stress, +5 Energy</span>
+        </button>
+        <button onclick="handleEvening('class')">
+          <span>Attend Evening Tech Lab Certification</span>
+          <span class="btn-badge">1 Pt | +1 Progress, -15 Energy</span>
+        </button>
+        <button onclick="handleEvening('rest')">
+          <span>Early Rest / Sleep Recovery</span>
+          <span class="btn-badge">1 Pt | +25 Energy, -5 Stress</span>
+        </button>
+      `;
+    }
+  }
+
+  function handleWork(type) {
+    if (type === 'standard') {
+      state.cash += 70;
+      state.energy = Math.max(0, state.energy - 20);
+      log("Completed standard warehouse shift. Earned $70.");
+    } else if (type === 'overtime') {
+      state.cash += 115;
+      state.energy = Math.max(0, state.energy - 40);
+      state.stress += 10;
+      log("Grinded 11-hour warehouse shift with overtime. Earned $115.");
+    } else if (type === 'plasma') {
+      state.cash += 135;
+      state.energy = Math.max(0, state.energy - 45);
+      state.health = Math.max(0, state.health - 5);
+      log("Donated plasma after your shift. Cash injection of $135.");
+    }
+    state.phase = "evening";
+    state.eveningPointsLeft = 3;
+    updateUI();
+  }
+
+  function handleEvening(action) {
+    if (action === 'cook') {
+      state.foodMeals--;
+      state.health = Math.min(100, state.health + 3);
+      state.energy = Math.max(0, state.energy - 10);
+      log("Cooked a healthy bulk meal from scratch. Fiber and clean protein restored.");
+    } else if (action === 'workout') {
+      state.health = Math.min(100, state.health + 5);
+      state.energy = Math.max(0, state.energy - 15);
+      state.stress = Math.max(0, state.stress - 5);
+      log("Led the family in home squats, push-ups, and pacing cardio.");
+    } else if (action === 'mindfulness') {
+      state.stress = Math.max(0, state.stress - 15);
+      state.energy = Math.min(100, state.energy + 5);
+      log("Guided family meditation and read library books. Morale stabilized.");
+    } else if (action === 'class') {
+      state.techCertSessions++;
+      state.energy = Math.max(0, state.energy - 15);
+      log(`Attended Tech Lab class. Progress: ${state.techCertSessions}/12.`);
+    } else if (action === 'rest') {
+      state.energy = Math.min(100, state.energy + 25);
+      state.stress = Math.max(0, state.stress - 5);
+      log("Took an early rest period to restore cellular stamina.");
+    }
+
+    state.eveningPointsLeft--;
+
+    if (state.eveningPointsLeft <= 0) {
+      endDayCycle();
+    } else {
+      updateUI();
+    }
+  }
+
+  function buyItem(item) {
+    if (item === 'bulk' && state.cash >= 18) {
+      state.cash -= 18;
+      state.foodMeals += 6;
+      log("Bought 6 meals worth of dry beans, brown rice, and oats (-$18).");
+    } else if (item === 'junk' && state.cash >= 14) {
+      state.cash -= 14;
+      state.foodMeals += 3;
+      state.health -= 2;
+      log("Bought processed mac & cheese and nuggets. Quick calories (-$14).");
+    } else if (item === 'fresh' && state.cash >= 25) {
+      state.cash -= 25;
+      state.foodMeals += 3;
+      state.health = Math.min(100, state.health + 4);
+      log("Bought fresh greens and citrus fruits (-$25).");
+    } else if (item === 'meds' && state.cash >= 12) {
+      state.cash -= 12;
+      state.hasMeds = true;
+      log("Stocked generic fever/pain reducers in first-aid cabinet (-$12).");
+    } else {
+      alert("Not enough cash!");
+    }
+    updateUI();
+  }
+
+  function endDayCycle() {
+    // Check baseline hunger penalty if no food was eaten
+    if (state.foodMeals <= 0) {
+      state.health = Math.max(0, state.health - 6);
+      state.stress += 10;
+      log("Pantry was empty tonight! Kids and parents went to bed hungry.");
+    }
+
+    // Rent Day Trigger
+    if (state.day === state.rentDueDay) {
+      if (state.cash >= state.rentAmount) {
+        state.cash -= state.rentAmount;
+        state.rentDueDay += 30;
+        log(`Paid monthly rent of $${state.rentAmount} in full!`);
+      } else {
+        state.cash -= state.rentAmount;
+        state.stress += 25;
+        log(`Could not pay full rent! Landlord slapped a late penalty and eviction warning.`);
+      }
+    }
+
+    // Trigger Random Systemic Event
+    triggerRandomEvent();
+  }
+
+  function triggerRandomEvent() {
+    const events = [
+      {
+        title: "South Texas Heat Dome",
+        desc: "Temperatures outside reach 104°F. Keeping the window AC running on high will add $35 to your power bill, but shutting it off will cause restless sleep and physical drain.",
+        options: [
+          { text: "Run AC full blast (-$35 Cash)", effect: () => { state.cash -= 35; state.stress -= 5; } },
+          { text: "Turn AC off (-20 Energy, +10 Stress)", effect: () => { state.energy -= 20; state.stress += 10; } }
+        ]
+      },
+      {
+        title: "School Vision Screening",
+        desc: "Your 10-year-old failed the school nurse's eye exam and needs basic prescription lenses to read without severe headaches.",
+        options: [
+          { text: "Pay Community Clinic for lenses (-$65)", effect: () => { state.cash -= 65; state.stress -= 10; } },
+          { text: "Defer exam (+15 Family Stress)", effect: () => { state.stress += 15; } }
+        ]
+      },
+      {
+        title: "Child Running High Fever (101.5°F)",
+        desc: "Your 6-year-old is sick and cannot attend school. Under Texas law, they cannot stay home alone. What is your immediate plan?",
+        options: [
+          { text: "Barter with Neighbor Doña Elena (Watch kid for cooked dinner)", effect: () => { state.foodMeals = Math.max(0, state.foodMeals - 1); state.stress -= 5; } },
+          { text: "Call out unpaid from shift (-$70 pay)", effect: () => { state.cash -= 70; state.energy += 10; } }
+        ]
+      }
+    ];
+
+    // Pick event every 3 days
+    if (state.day % 3 === 0) {
+      const ev = events[Math.floor(Math.random() * events.length)];
+      showModal(ev.title, ev.desc, ev.options);
+    } else {
+      nextDay();
+    }
+  }
+
+  function showModal(title, desc, options) {
+    const modal = document.getElementById("event-modal");
+    document.getElementById("modal-title").innerText = title;
+    document.getElementById("modal-desc").innerText = desc;
+    const optBox = document.getElementById("modal-actions");
+    optBox.innerHTML = "";
+
+    options.forEach(opt => {
+      const btn = document.createElement("button");
+      btn.innerText = opt.text;
+      btn.onclick = () => {
+        opt.effect();
+        modal.style.display = "none";
+        nextDay();
+      };
+      optBox.appendChild(btn);
+    });
+
+    modal.style.display = "flex";
+  }
+
+  function nextDay() {
+    state.day++;
+    if (state.day > state.maxDays) {
+      return triggerWin();
+    }
+    state.phase = "work";
+    state.energy = Math.min(100, state.energy + 20); // Base overnight recovery
+    updateUI();
+  }
+
+  function triggerGameOver(reason) {
+    alert(`GAME OVER: ${reason}`);
+    location.reload();
+  }
+
+  function triggerWin() {
+    alert(`CONGRATULATIONS! You survived 30 days in Brownsville. Final Health: ${state.health}%, Final Savings: $${state.cash.toFixed(2)}, Tech Certs: ${state.techCertSessions}/12.`);
+    location.reload();
+  }
+
+  // Initialize First Day
+  log("Simulation started. Maintain clean bulk diet, calisthenics, and cash reserves.");
+  updateUI();
+</script>
+</body>
+</html>
