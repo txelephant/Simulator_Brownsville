@@ -6,6 +6,7 @@
   <title>Brownsville Survival: Environment & Transit Sim</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
+    /* --- CORE VARIABLES --- */
     :root {
       --bg-dark: #0f172a; --bg-panel: #1e293b; --bg-card: #334155;
       --border: #475569; --border-focus: #38bdf8;
@@ -13,10 +14,19 @@
       --accent: #0ea5e9; --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
       --font-stack: system-ui, -apple-system, sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-stack); }
-    body { background: var(--bg-dark); color: var(--text-main); display: flex; justify-content: center; padding: 1vh; height: 100vh; overflow: hidden; }
     
-    #app { width: 100%; max-width: 1400px; display: grid; grid-template-columns: 320px 1fr 350px; gap: 15px; height: 100%; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-stack); }
+    body { background: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; align-items: center; padding: 1vh; height: 100vh; overflow: hidden; }
+    
+    /* --- TOP NAVBAR (NEW) --- */
+    .top-nav { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; }
+    .nav-title { font-weight: bold; font-size: 1.1rem; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+    .nav-controls { display: flex; gap: 10px; }
+    .btn-nav { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+    .btn-nav:hover { background: var(--accent); border-color: var(--accent); }
+    .btn-danger { hover: background: var(--danger); }
+
+    #app { width: 100%; max-width: 1400px; display: grid; grid-template-columns: 320px 1fr 350px; gap: 15px; height: calc(100% - 70px); }
 
     /* --- PANELS --- */
     .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
@@ -32,7 +42,6 @@
     .node-label { fill: var(--text-muted); font-size: 12px; font-weight: bold; pointer-events: none; }
     .path-line { stroke: var(--border); stroke-width: 2; stroke-dasharray: 4; }
     .player-blip { fill: var(--danger); animation: pulse 1.5s infinite; }
-    
     @keyframes pulse { 0% { r: 4; opacity: 1; } 100% { r: 12; opacity: 0; } }
 
     /* --- WEATHER & UI --- */
@@ -64,13 +73,25 @@
     .transit-card { background: rgba(14, 165, 233, 0.1); border: 1px solid var(--accent); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; }
     .ac-toggle { display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; border: 1px solid var(--border); }
     
-    /* --- MODALS --- */
+    /* --- MODALS (EVENTS & TUTORIAL) --- */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(3px); }
-    .modal-content { background: var(--bg-panel); border: 1px solid var(--accent); padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    .event-title { color: var(--danger); margin-bottom: 10px; font-size: 1.4rem; }
+    .modal-content { background: var(--bg-panel); border: 1px solid var(--accent); padding: 30px; border-radius: 8px; width: 90%; max-width: 550px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+    .event-title { color: var(--accent); margin-bottom: 15px; font-size: 1.6rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    
+    /* Toast Alert */
+    #save-toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 10px 20px; border-radius: 4px; display: none; z-index: 2000; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-weight: bold;}
   </style>
 </head>
 <body>
+
+<!-- TOP NAV (Save / Load Controls) -->
+<div class="top-nav">
+  <div class="nav-title"><i class="fas fa-city"></i> Brownsville Survival Sim</div>
+  <div class="nav-controls">
+    <button class="btn-nav" onclick="Engine.saveGame()"><i class="fas fa-save"></i> Save Game</button>
+    <button class="btn-nav" style="border-color: var(--danger); color: #fca5a5;" onclick="Engine.resetGame()"><i class="fas fa-trash"></i> Reset Data</button>
+  </div>
+</div>
 
 <div id="app">
   <!-- LEFT PANEL: ROSTER & UTILITIES -->
@@ -103,12 +124,10 @@
       <!-- Interactive Map -->
       <div class="map-container">
         <svg class="map-svg" viewBox="0 0 400 220">
-          <!-- Paths -->
           <line x1="80" y1="160" x2="200" y2="100" class="path-line" />
           <line x1="200" y1="100" x2="320" y2="60" class="path-line" />
           <line x1="200" y1="100" x2="100" y2="40" class="path-line" />
           
-          <!-- Nodes -->
           <circle cx="80" cy="160" r="12" class="node" id="node-apt" onclick="Engine.travel('Apartment')" />
           <text x="60" y="185" class="node-label">Southmost Apt</text>
           
@@ -121,7 +140,6 @@
           <circle cx="100" cy="40" r="12" class="node" id="node-clinic" onclick="Engine.travel('Clinic')" />
           <text x="75" y="25" class="node-label">Su Clínica</text>
 
-          <!-- Player Indicator -->
           <circle cx="80" cy="160" r="4" class="player-blip" id="player-blip" />
         </svg>
       </div>
@@ -136,7 +154,6 @@
       <p id="ui-narrative" style="margin: 15px 0; line-height: 1.5; color: #cbd5e1; font-size:0.95rem;"></p>
       
       <div id="action-container" style="flex-grow:1;"></div>
-
       <button class="btn btn-primary" id="btn-advance" onclick="Engine.advancePhase()">Advance Time <i class="fas fa-arrow-right"></i></button>
     </div>
   </div>
@@ -173,26 +190,25 @@
         <button class="btn" style="padding:8px; font-size:0.85rem;" onclick="Engine.buyItem('junk', 12, 3)">Processed Box (3) - $12</button>
         <button class="btn" style="padding:8px; font-size:0.85rem;" onclick="Engine.buyItem('fresh', 28, 4)">Fresh Produce (4) - $28</button>
       </div>
-
     </div>
   </div>
 </div>
 
-<!-- EVENT MESSAGE BROKER MODAL -->
+<!-- EVENT / TUTORIAL MODAL -->
 <div class="modal-overlay" id="event-modal">
   <div class="modal-content">
-    <h2 class="event-title" id="event-title"><i class="fas fa-exclamation-triangle"></i> System Alert</h2>
-    <p id="event-desc" style="color:var(--text-main); margin-bottom: 20px; line-height: 1.5; font-size: 0.95rem;"></p>
+    <h2 class="event-title" id="event-title">Title</h2>
+    <p id="event-desc" style="color:var(--text-main); margin-bottom: 20px; line-height: 1.6; font-size: 1rem;"></p>
     <div id="event-actions" style="display:flex; flex-direction:column; gap:10px;"></div>
   </div>
 </div>
 
+<div id="save-toast"><i class="fas fa-check-circle"></i> Game Saved Successfully!</div>
+
 <script>
 /**
  * ARCHITECTURE:
- * 1. Entities: Person classes for independent health tracking.
- * 2. Systems: Weather, Map/Transit, and Event Queue.
- * 3. Engine: State loops and rendering.
+ * Extended to support LocalStorage Serialization and Tutorial Logic
  */
 
 class Person {
@@ -203,15 +219,15 @@ class Person {
   processMetabolism(temp, acOn) {
     this.hunger += 15;
     if (this.hunger > 80) this.health -= 8; // Starvation damage
-    // Extreme Heat penalty without AC
-    if (!acOn && temp >= 100) this.health -= 5;
+    if (!acOn && temp >= 100) this.health -= 5; // Heatstroke damage
     
     this.hunger = Math.min(100, Math.max(0, this.hunger));
     this.health = Math.min(100, Math.max(0, this.health));
   }
 }
 
-const State = {
+// Default Starting State
+const DefaultState = {
   day: 1, phase: 0, 
   phases: ['Morning', 'Afternoon', 'Evening'],
   actionPoints: 2,
@@ -221,39 +237,35 @@ const State = {
   inventory: { bulk: 2, junk: 0, fresh: 0 },
   weather: { temp: 95, isHeatwave: false },
   family: [
-    new Person('mc', 'You (Warehouse)', true),
-    new Person('spouse', 'Maria (Retail)', true),
-    new Person('kid1', 'Leo (Age 10)', false),
-    new Person('kid2', 'Maya (Age 6)', false)
+    { id: 'mc', name: 'You (Warehouse)', isAdult: true, health: 80, hunger: 20 },
+    { id: 'spouse', name: 'Maria (Retail)', isAdult: true, health: 80, hunger: 20 },
+    { id: 'kid1', name: 'Leo (Age 10)', isAdult: false, health: 80, hunger: 20 },
+    { id: 'kid2', name: 'Maya (Age 6)', isAdult: false, health: 80, hunger: 20 }
   ],
   eventQueue: [],
   mapNodes: {
-    'Apartment': { x: 80, y: 160 },
-    'Supermarket': { x: 200, y: 100 },
-    'Warehouse': { x: 320, y: 60 },
-    'Clinic': { x: 100, y: 40 }
+    'Apartment': { x: 80, y: 160 }, 'Supermarket': { x: 200, y: 100 },
+    'Warehouse': { x: 320, y: 60 }, 'Clinic': { x: 100, y: 40 }
   }
 };
 
+let State = {};
+
 const Systems = {
   generateWeather() {
-    // Generates a temp between 90 and 106
     let temp = Math.floor(Math.random() * 16) + 90;
     State.weather.temp = temp;
     State.weather.isHeatwave = temp >= 100;
   },
   processUtilityBills() {
-    if (State.acOn) State.cash -= 3; // Daily AC cost
+    if (State.acOn) State.cash -= 3;
   },
   triggerRandomEvent() {
-    // 15% chance per day to push a major event to the queue
     if (Math.random() < 0.15 && State.carWorking) {
       State.eventQueue.push({
         title: "Car Breakdown",
-        desc: "Your sedan's alternator failed. You can no longer drive until you pay for parts. You must rely on the B-Metro bus (costs 2 AP per travel).",
-        options: [
-          { text: "Tow to Apartment", action: () => { State.carWorking = false; } }
-        ]
+        desc: "Your sedan's alternator failed. You must rely on the B-Metro bus (costs 2 AP per travel) until you pay $130 for repairs.",
+        options: [{ text: "Tow to Apartment", action: () => { State.carWorking = false; } }]
       });
     }
   }
@@ -261,10 +273,78 @@ const Systems = {
 
 const Engine = {
   init() {
-    Systems.generateWeather();
+    this.loadGame();
     this.renderAll();
+    this.checkTutorial();
   },
 
+  // --- SAVE / LOAD SYSTEM ---
+  saveGame() {
+    localStorage.setItem('brownsville_save', JSON.stringify(State));
+    
+    // Show Toast
+    const toast = document.getElementById('save-toast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 2500);
+  },
+
+  loadGame() {
+    const saved = localStorage.getItem('brownsville_save');
+    if (saved) {
+      State = JSON.parse(saved);
+      // Re-hydrate Person classes from plain objects
+      State.family = State.family.map(pData => {
+        let p = new Person(pData.id, pData.name, pData.isAdult);
+        p.health = pData.health; p.hunger = pData.hunger;
+        return p;
+      });
+    } else {
+      // Deep copy default state
+      State = JSON.parse(JSON.stringify(DefaultState));
+      State.family = State.family.map(pData => new Person(pData.id, pData.name, pData.isAdult));
+      Systems.generateWeather();
+    }
+  },
+
+  resetGame() {
+    if (confirm("Are you sure you want to delete all progress?")) {
+      localStorage.removeItem('brownsville_save');
+      localStorage.removeItem('brownsville_tutorial');
+      location.reload();
+    }
+  },
+
+  // --- TUTORIAL SYSTEM ---
+  checkTutorial() {
+    if (!localStorage.getItem('brownsville_tutorial')) {
+      this.showModal(
+        "Welcome to Brownsville", 
+        "<b>Your Goal:</b> Keep your family healthy for 30 days without going bankrupt.<br><br>" +
+        "<b>1. Time (AP):</b> You have 2 Action Points per phase. Commuting burns AP.<br>" +
+        "<b>2. Transit:</b> Click the map nodes (H-E-B, Warehouse) to travel.<br>" +
+        "<b>3. Survival:</b> Don't let hunger reach 100, or your family will suffer severe health drops.",
+        [{ text: "I understand, start the simulation.", action: () => { localStorage.setItem('brownsville_tutorial', 'true'); } }]
+      );
+    }
+  },
+
+  showModal(title, desc, options) {
+    document.getElementById('event-modal').style.display = 'flex';
+    document.getElementById('event-title').innerHTML = title;
+    document.getElementById('event-desc').innerHTML = desc;
+    
+    const actBox = document.getElementById('event-actions');
+    actBox.innerHTML = '';
+    
+    options.forEach(opt => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-primary'; b.innerText = opt.text;
+      b.onclick = () => { opt.action(); document.getElementById('event-modal').style.display = 'none'; this.renderAll(); };
+      actBox.appendChild(b);
+    });
+  },
+
+  // --- RENDERING ---
   renderAll() {
     this.renderMap();
     this.renderRoster();
@@ -273,21 +353,15 @@ const Engine = {
     this.processEventQueue();
   },
 
-  // --- MAP & TRANSIT ---
   renderMap() {
     document.querySelectorAll('.node').forEach(n => n.classList.remove('node-active'));
-    let activeNode;
-    if (State.location === 'Apartment') activeNode = document.getElementById('node-apt');
-    if (State.location === 'Supermarket') activeNode = document.getElementById('node-heb');
-    if (State.location === 'Warehouse') activeNode = document.getElementById('node-work');
-    if (State.location === 'Clinic') activeNode = document.getElementById('node-clinic');
     
-    if(activeNode) activeNode.classList.add('node-active');
+    let nodeMap = { 'Apartment': 'node-apt', 'Supermarket': 'node-heb', 'Warehouse': 'node-work', 'Clinic': 'node-clinic' };
+    if (nodeMap[State.location]) document.getElementById(nodeMap[State.location]).classList.add('node-active');
     
     const coords = State.mapNodes[State.location];
     const blip = document.getElementById('player-blip');
-    blip.setAttribute('cx', coords.x);
-    blip.setAttribute('cy', coords.y);
+    blip.setAttribute('cx', coords.x); blip.setAttribute('cy', coords.y);
 
     document.getElementById('ui-location-header').innerHTML = `<i class="fas fa-map-marker-alt"></i> Loc: ${State.location}`;
     document.getElementById('shop-container').style.display = State.location === 'Supermarket' ? 'block' : 'none';
@@ -296,19 +370,15 @@ const Engine = {
   travel(destination) {
     if (State.location === destination) return;
     
-    let cost = State.carWorking ? 0 : 2; // B-Metro takes entire phase's AP
-    if (State.actionPoints < cost) {
-      alert("Not enough Action Points (Time) to travel via Bus this phase.");
-      return;
-    }
+    let cost = State.carWorking ? 0 : 2; // B-Metro penalty
+    if (State.actionPoints < cost) return alert("Not enough Action Points (Time) to travel via Bus this phase.");
     
     State.actionPoints -= cost;
     State.location = destination;
-    State.globalStress += (cost > 0) ? 10 : 0; // Bus causes stress
+    State.globalStress += (cost > 0) ? 10 : 0; 
     this.renderAll();
   },
 
-  // --- UI RENDERING ---
   renderRoster() {
     const container = document.getElementById('roster-container');
     container.innerHTML = '';
@@ -326,13 +396,10 @@ const Engine = {
 
     document.getElementById('ui-stress-global').innerHTML = `<i class="fas fa-brain"></i> Stress: ${State.globalStress}%`;
     
-    // Weather UI
     const wBadge = document.getElementById('ui-weather');
     wBadge.innerHTML = `<i class="fas ${State.weather.isHeatwave ? 'fa-fire' : 'fa-sun'}"></i> ${State.weather.temp}°F`;
-    if (State.weather.isHeatwave) wBadge.classList.add('weather-extreme');
-    else wBadge.classList.remove('weather-extreme');
+    State.weather.isHeatwave ? wBadge.classList.add('weather-extreme') : wBadge.classList.remove('weather-extreme');
 
-    // AC Status
     const acBtn = document.getElementById('btn-ac');
     acBtn.innerText = State.acOn ? 'ON' : 'OFF';
     acBtn.style.background = State.acOn ? 'var(--accent)' : 'var(--bg-card)';
@@ -347,11 +414,8 @@ const Engine = {
     document.getElementById('ui-inv-fresh').innerText = State.inventory.fresh;
     
     const carStat = document.getElementById('ui-car-status');
-    if (State.carWorking) {
-      carStat.innerText = "Operational"; carStat.style.color = "var(--success)";
-    } else {
-      carStat.innerText = "BROKEN"; carStat.style.color = "var(--danger)";
-    }
+    if (State.carWorking) { carStat.innerText = "Operational"; carStat.style.color = "var(--success)"; } 
+    else { carStat.innerText = "BROKEN"; carStat.style.color = "var(--danger)"; }
   },
 
   renderPhase() {
@@ -363,12 +427,9 @@ const Engine = {
     actContainer.innerHTML = '';
     const narrative = document.getElementById('ui-narrative');
 
-    // Contextual Actions based on Location and Phase
     if (State.location === 'Warehouse' && State.phase !== 2) {
       narrative.innerText = "You are at the Logistics Center. Ready to clock in.";
-      this.addBtn("Clock In Shift", "Earn $85. Uses all AP.", () => {
-        State.cash += 85; State.actionPoints = 0; State.globalStress += 5; this.renderAll();
-      });
+      this.addBtn("Clock In Shift", "Earn $85. Uses all AP.", () => { State.cash += 85; State.actionPoints = 0; State.globalStress += 5; this.renderAll(); });
     } else if (State.location === 'Apartment') {
       narrative.innerText = "You are home. Manage family needs or rest.";
       this.addBtn("Feed Family (Bulk)", "Uses 4 Bulk, Restores Hunger", () => {
@@ -379,16 +440,13 @@ const Engine = {
         if(State.cash >= 130) { State.cash-=130; State.carWorking = true; this.renderAll(); }
       }, State.carWorking || State.cash < 130);
     } else if (State.location === 'Supermarket') {
-      narrative.innerText = "Buy groceries here. (Use the Store Inventory panel below).";
+      narrative.innerText = "Buy groceries here. (Use the Store Inventory panel).";
     } else {
       narrative.innerText = `You are at the ${State.location}. Nothing to do here this phase.`;
     }
     
-    // Global Rest Action
     if (State.actionPoints > 0) {
-      this.addBtn("Rest & Wait", "Burns 1 AP, restores minor health.", () => {
-        State.actionPoints--; State.globalStress -= 5; this.renderAll();
-      });
+      this.addBtn("Rest & Wait", "Burns 1 AP, restores minor health.", () => { State.actionPoints--; State.globalStress -= 5; this.renderAll(); });
     }
   },
 
@@ -400,52 +458,28 @@ const Engine = {
     document.getElementById('action-container').appendChild(b);
   },
 
-  toggleAC() {
-    State.acOn = !State.acOn;
-    this.renderAll();
-  },
+  toggleAC() { State.acOn = !State.acOn; this.renderAll(); },
 
   buyItem(type, cost, qty) {
-    if (State.cash >= cost) {
-      State.cash -= cost; State.inventory[type] += qty; this.renderAll();
-    }
+    if (State.cash >= cost) { State.cash -= cost; State.inventory[type] += qty; this.renderAll(); }
   },
 
-  // --- ENGINE LOOPS & EVENT BROKER ---
   advancePhase() {
-    // Process metabolism passing time
     State.family.forEach(p => p.processMetabolism(State.weather.temp, State.acOn));
-    
-    State.phase++;
-    State.actionPoints = 2; // Reset AP for next phase
+    State.phase++; State.actionPoints = 2;
 
     if (State.phase >= State.phases.length) {
-      // End of Day Loop
       State.phase = 0; State.day++;
-      Systems.processUtilityBills();
-      Systems.generateWeather();
-      Systems.triggerRandomEvent();
+      Systems.processUtilityBills(); Systems.generateWeather(); Systems.triggerRandomEvent();
+      this.saveGame(); // Auto-save at the end of the day
     }
     this.renderAll();
   },
 
   processEventQueue() {
     if (State.eventQueue.length > 0) {
-      const ev = State.eventQueue.shift(); // Pop first event
-      
-      document.getElementById('event-modal').style.display = 'flex';
-      document.getElementById('event-title').innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${ev.title}`;
-      document.getElementById('event-desc').innerText = ev.desc;
-      
-      const actBox = document.getElementById('event-actions');
-      actBox.innerHTML = '';
-      
-      ev.options.forEach(opt => {
-        const b = document.createElement('button');
-        b.className = 'btn btn-primary'; b.innerText = opt.text;
-        b.onclick = () => { opt.action(); document.getElementById('event-modal').style.display = 'none'; this.renderAll(); };
-        actBox.appendChild(b);
-      });
+      const ev = State.eventQueue.shift();
+      this.showModal(`<i class="fas fa-exclamation-triangle"></i> ${ev.title}`, ev.desc, ev.options);
     }
   }
 };
