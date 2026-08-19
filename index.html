@@ -3,548 +3,439 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Brownsville Survival: Public Health Simulator</title>
+  <title>Brownsville Survival: Advanced Simulation</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0b1120; --bg-panel: #1e293b; --bg-card: #0f172a;
-      --border: #334155; --border-light: #475569;
+      --bg-dark: #0f172a; --bg-panel: #1e293b; --bg-card: #334155;
+      --border: #475569; --border-focus: #38bdf8;
       --text-main: #f8fafc; --text-muted: #94a3b8;
-      --accent: #0ea5e9; --accent-hover: #0284c7;
-      --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
+      --accent: #0ea5e9; --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
       --font-stack: system-ui, -apple-system, sans-serif;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-stack); }
-    body { background: var(--bg-dark); color: var(--text-main); line-height: 1.6; padding: 2vh 2vw; display: flex; justify-content: center; }
+    body { background: var(--bg-dark); color: var(--text-main); display: flex; justify-content: center; padding: 2vh; }
     
-    #app { width: 100%; max-width: 1200px; display: flex; flex-direction: column; gap: 20px; }
+    #app { width: 100%; max-width: 1300px; display: grid; grid-template-columns: 300px 1fr 350px; gap: 20px; }
+    @media (max-width: 1024px) { #app { grid-template-columns: 1fr; } }
+
+    /* --- PANEL STYLES --- */
+    .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+    .panel-header { background: rgba(0,0,0,0.2); padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; display: flex; justify-content: space-between; }
+    .panel-content { padding: 15px; flex-grow: 1; overflow-y: auto; }
+
+    /* --- FAMILY ROSTER --- */
+    .family-member { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+    .fm-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .fm-name { font-weight: bold; color: var(--accent); }
+    .fm-role { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
     
-    /* --- SCREENS --- */
-    .screen { display: none; animation: fadeIn 0.4s ease-out; }
-    .screen.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .stat-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 0.8rem; }
+    .bar-bg { flex-grow: 1; height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; transition: width 0.3s ease; }
+    .fill-health { background: var(--success); }
+    .fill-hunger { background: var(--warning); }
 
-    /* --- START SCREEN --- */
-    .start-container { background: var(--bg-panel); padding: 40px; border-radius: 12px; border: 1px solid var(--border); max-width: 600px; margin: 10vh auto; text-align: center; }
-    .start-container h1 { color: var(--accent); margin-bottom: 10px; font-size: 2.2rem; }
-    .start-container p { color: var(--text-muted); margin-bottom: 30px; }
-    .form-group { text-align: left; margin-bottom: 20px; }
-    .form-group label { display: block; font-size: 0.9rem; margin-bottom: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-    select { width: 100%; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); color: white; border-radius: 6px; font-size: 1rem; }
-    .btn-primary { background: var(--accent); color: white; border: none; padding: 14px 24px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; width: 100%; transition: background 0.2s; font-weight: bold; }
-    .btn-primary:hover { background: var(--accent-hover); }
-
-    /* --- HEADER --- */
-    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
-    .header-titles h1 { font-size: 1.5rem; }
-    .header-titles p { color: var(--text-muted); font-size: 0.9rem; }
-    .day-badge { background: rgba(14, 165, 233, 0.15); border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; font-weight: bold; }
-
-    /* --- DASHBOARD --- */
-    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
-    .stat-card { background: var(--bg-panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-    .stat-header { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 8px; }
-    .stat-val { font-size: 1.8rem; font-weight: bold; display: flex; align-items: baseline; gap: 5px; }
-    .stat-sub { font-size: 0.8rem; color: var(--text-muted); font-weight: normal; }
+    /* --- MAIN ENGINE VIEW --- */
+    .time-display { text-align: center; font-size: 1.2rem; padding: 20px 0; border-bottom: 1px solid var(--border); }
+    .time-display h2 { color: var(--accent); font-size: 2rem; margin-bottom: 5px; }
     
-    .bar-bg { width: 100%; height: 8px; background: var(--bg-card); border-radius: 4px; margin-top: 10px; overflow: hidden; }
-    .bar-fill { height: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-    .fill-health { background: linear-gradient(90deg, #fbbf24, #10b981); }
-    .fill-energy { background: linear-gradient(90deg, #6366f1, #0ea5e9); }
-    .fill-stress { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-
-    /* --- MAIN GAME AREA --- */
-    .game-grid { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; }
-    @media (max-width: 900px) { .game-grid { grid-template-columns: 1fr; } }
-
-    .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-    .panel-title { font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 5px; color: var(--text-main); display: flex; justify-content: space-between;}
+    .mandate-box { background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--danger); padding: 15px; margin: 15px 0; border-radius: 0 6px 6px 0; }
+    .mandate-box h3 { color: var(--danger); font-size: 1rem; margin-bottom: 5px; }
     
-    .scenario-text { font-size: 1.05rem; color: #cbd5e1; }
-    .fact-box { background: rgba(14, 165, 233, 0.1); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 0.9rem; }
-    .fact-box strong { color: var(--accent); display: block; margin-bottom: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .action-list { display: flex; flex-direction: column; gap: 10px; }
+    .btn { background: var(--bg-card); color: white; border: 1px solid var(--border); padding: 12px; border-radius: 6px; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+    .btn:hover:not(:disabled) { border-color: var(--border-focus); background: #3b4c63; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); text-align: center; justify-content: center; font-weight: bold; margin-top: 15px; }
+    .btn-primary:hover:not(:disabled) { background: #0284c7; }
 
-    /* Buttons */
-    .actions-list { display: flex; flex-direction: column; gap: 10px; }
-    .action-btn { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-light); padding: 14px 18px; border-radius: 6px; text-align: left; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; transition: all 0.2s; }
-    .action-btn:hover:not(:disabled) { background: #1e3a5f; border-color: var(--accent); transform: translateX(4px); }
-    .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .action-title { font-size: 1rem; font-weight: 500; }
-    .action-effects { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
-    .action-cost { background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-family: monospace; }
+    /* --- INVENTORY & LOGISTICS --- */
+    .inventory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .inv-item { background: var(--bg-dark); border: 1px solid var(--border); padding: 10px; border-radius: 6px; text-align: center; }
+    .inv-val { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+    .inv-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
 
-    /* Shop */
-    .shop-list { display: flex; flex-direction: column; gap: 8px; }
-    .shop-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; }
-    .shop-info h4 { font-size: 0.95rem; margin-bottom: 2px; }
-    .shop-info p { font-size: 0.75rem; color: var(--text-muted); }
-    .btn-buy { background: var(--border-light); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; }
-    .btn-buy:hover { background: var(--accent); }
+    .job-card { background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); padding: 12px; border-radius: 6px; margin-bottom: 10px; }
+    .strike-box { color: var(--danger); font-weight: bold; font-family: monospace; letter-spacing: 2px; }
 
-    /* Event Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-    .modal-box { background: var(--bg-panel); border: 1px solid var(--accent); padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    .modal-box h2 { color: var(--warning); margin-bottom: 10px; }
-    .modal-box p { color: var(--text-main); margin-bottom: 20px; line-height: 1.6; }
-
-    /* Toast Notifications */
-    #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 2000; }
-    .toast { background: var(--bg-panel); border-left: 4px solid var(--accent); color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 0.9rem; animation: slideIn 0.3s forwards; max-width: 300px; }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    /* --- FEEDING MODAL --- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-content { background: var(--bg-panel); border: 1px solid var(--border-focus); padding: 20px; border-radius: 8px; width: 90%; max-width: 600px; }
+    .feed-row { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .feed-controls { display: flex; gap: 5px; }
+    .btn-food { flex: 1; padding: 8px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border); color: white; cursor: pointer; border-radius: 4px; }
+    .btn-food:hover:not(:disabled) { background: var(--accent); }
   </style>
 </head>
 <body>
 
 <div id="app">
-  
-  <!-- START SCREEN -->
-  <div id="screen-start" class="screen active">
-    <div class="start-container">
-      <h1>Brownsville Survival</h1>
-      <p>A socioeconomic simulation mapping the friction between poverty, urban infrastructure, and physical health in South Texas.</p>
-      
-      <div class="form-group">
-        <label>Select Difficulty Profile</label>
-        <select id="diff-select">
-          <option value="standard">Standard (Working Poor - $350 Starting Cash)</option>
-          <option value="hard">Deep Poverty (Uninsured - $85 Starting Cash)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Dependents (Kids)</label>
-        <select id="kids-select">
-          <option value="2">2 Kids (Standard Model)</option>
-          <option value="1">1 Kid</option>
-          <option value="3">3 Kids (High Resource Drain)</option>
-        </select>
-      </div>
-      
-      <button class="btn-primary" onclick="GameEngine.init()">Start Simulation</button>
+  <!-- LEFT PANEL: FAMILY ROSTER -->
+  <div class="panel">
+    <div class="panel-header">
+      <span>Family Roster</span>
+      <span id="ui-stress-global" style="color:var(--warning)"><i class="fas fa-brain"></i> Stress: 20%</span>
+    </div>
+    <div class="panel-content" id="roster-container">
+      <!-- Injected via JS -->
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
-  <div id="screen-game" class="screen">
-    <header>
-      <div class="header-titles">
-        <h1>Brownsville, TX</h1>
-        <p>Monthly Survival Cycle</p>
-      </div>
-      <div class="day-badge" id="ui-day-badge">Day 1 / 30</div>
-    </header>
-
-    <div class="dashboard">
-      <div class="stat-card">
-        <div class="stat-header"><span><i class="fas fa-wallet"></i> Finances</span> <span id="ui-rent-warn" style="color:var(--warning)"></span></div>
-        <div class="stat-val" id="ui-cash">$0.00</div>
-        <div class="stat-sub">Rent: $850 due Day <span id="ui-rent-day">7</span></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-header"><span><i class="fas fa-heartbeat"></i> Health</span></div>
-        <div class="stat-val" id="ui-health">0%</div>
-        <div class="bar-bg"><div class="bar-fill fill-health" id="bar-health"></div></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-header"><span><i class="fas fa-bolt"></i> Energy</span></div>
-        <div class="stat-val" id="ui-energy">0%</div>
-        <div class="bar-bg"><div class="bar-fill fill-energy" id="bar-energy"></div></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-header"><span><i class="fas fa-brain"></i> Stress</span></div>
-        <div class="stat-val" id="ui-stress">0%</div>
-        <div class="bar-bg"><div class="bar-fill fill-stress" id="bar-stress"></div></div>
-      </div>
+  <!-- CENTER PANEL: TIME & ACTIONS -->
+  <div class="panel">
+    <div class="time-display">
+      <h2 id="ui-phase-name">Morning Shift</h2>
+      <div style="color: var(--text-muted);">Day <span id="ui-day-num">1</span> | <span id="ui-clock">06:00 AM</span></div>
     </div>
+    
+    <div class="panel-content">
+      <div class="mandate-box" id="mandate-container" style="display: none;">
+        <h3><i class="fas fa-exclamation-triangle"></i> Required Tasks</h3>
+        <ul id="mandate-list" style="margin-left: 20px; font-size: 0.9rem; color: #fca5a5;"></ul>
+      </div>
 
-    <div class="game-grid">
-      <!-- ACTION PANEL -->
-      <div class="panel">
-        <div class="panel-title">
-          <span id="ui-phase-title">Morning Shift</span>
-          <span id="ui-points" style="color: var(--accent); font-size: 0.9rem;"></span>
+      <p id="ui-narrative" style="margin-bottom: 15px; line-height: 1.6; color: #cbd5e1;">The alarm rings. You work the day shift at the distribution center. Your spouse takes the kids to school before their evening retail shift.</p>
+      
+      <div class="action-list" id="action-container">
+        <!-- Actions injected here -->
+      </div>
+
+      <button class="btn btn-primary" id="btn-advance" onclick="Engine.advancePhase()">Advance Time <i class="fas fa-arrow-right" style="margin-left: 8px;"></i></button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: LOGISTICS -->
+  <div class="panel">
+    <div class="panel-header">Resources & Logistics</div>
+    <div class="panel-content">
+      
+      <div class="inventory-grid">
+        <div class="inv-item">
+          <div class="inv-val" id="ui-cash">$0</div>
+          <div class="inv-label">Bank Balance</div>
         </div>
-        <p class="scenario-text" id="ui-scenario-desc">Loading...</p>
-        
-        <div class="actions-list" id="ui-action-list"></div>
-
-        <div class="fact-box">
-          <strong>Contextual Data</strong>
-          <span id="ui-fact-text">Loading reality check...</span>
+        <div class="inv-item">
+          <div class="inv-val" id="ui-rent-due">Day 7</div>
+          <div class="inv-label">Rent ($850) Due</div>
         </div>
       </div>
 
-      <!-- SIDEBAR: SHOP & INVENTORY -->
-      <div class="panel">
-        <div class="panel-title"><span>Local Resources</span></div>
-        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:5px;">
-          <span>Pantry Meals: <strong id="ui-food-stock" style="color:var(--success)">0</strong></span>
-          <span>Meds: <strong id="ui-meds-stock">None</strong></span>
-        </div>
-        
-        <div class="shop-list">
-          <div class="shop-item">
-            <div class="shop-info">
-              <h4>El Valle Supermarket Bulk</h4>
-              <p>Rice, Beans, Oats (6 Meals)</p>
-            </div>
-            <button class="btn-buy" onclick="GameEngine.buy('bulk', 18, 6)">$18</button>
-          </div>
-          <div class="shop-item">
-            <div class="shop-info">
-              <h4>Oxxo Processed Junk</h4>
-              <p>Ramen, Cheetos, Hot Dogs (3 Meals)</p>
-            </div>
-            <button class="btn-buy" onclick="GameEngine.buy('junk', 12, 3)">$12</button>
-          </div>
-          <div class="shop-item">
-            <div class="shop-info">
-              <h4>H-E-B Fresh Produce</h4>
-              <p>Greens, Chicken, Citrus (4 Meals)</p>
-            </div>
-            <button class="btn-buy" onclick="GameEngine.buy('fresh', 30, 4)">$30</button>
-          </div>
-          <div class="shop-item">
-            <div class="shop-info">
-              <h4>Su Clínica Pharmacy</h4>
-              <p>OTC Pain & Fever Reducers</p>
-            </div>
-            <button class="btn-buy" onclick="GameEngine.buy('meds', 15, 0)">$15</button>
-          </div>
+      <h4 style="margin: 15px 0 10px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;">Pantry (Portions)</h4>
+      <div class="inventory-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="inv-item"><div class="inv-val" id="ui-inv-bulk" style="color:#10b981;">0</div><div class="inv-label">Bulk</div></div>
+        <div class="inv-item"><div class="inv-val" id="ui-inv-junk" style="color:#f59e0b;">0</div><div class="inv-label">Junk</div></div>
+        <div class="inv-item"><div class="inv-val" id="ui-inv-fresh" style="color:#38bdf8;">0</div><div class="inv-label">Fresh</div></div>
+      </div>
+
+      <h4 style="margin: 15px 0 10px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;">Employment Info</h4>
+      <div class="job-card">
+        <div style="font-weight:bold; margin-bottom:4px;">Main: Warehouse Logistics</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+          <span>Wage: $14.50/hr</span>
+          <span>Strikes: <span class="strike-box" id="ui-job1-strikes">[ ] [ ] [ ]</span></span>
         </div>
       </div>
+      <div class="job-card" style="border-color:var(--border); background:var(--bg-dark);">
+        <div style="font-weight:bold; margin-bottom:4px;">Spouse: Retail Floor</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+          <span>Wage: $11.00/hr</span>
+          <span>Strikes: <span class="strike-box" id="ui-job2-strikes">[ ] [ ] [ ]</span></span>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
-<!-- EVENT MODAL -->
-<div class="modal-overlay" id="event-modal">
-  <div class="modal-box">
-    <h2 id="modal-title">Systemic Event</h2>
-    <p id="modal-desc">Event description goes here.</p>
-    <div class="actions-list" id="modal-actions"></div>
+<!-- MEAL ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="meal-modal">
+  <div class="modal-content">
+    <h2 style="color:var(--accent); margin-bottom:15px;"><i class="fas fa-utensils"></i> Assign Meals</h2>
+    <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:20px;">Portions remaining: Bulk (<span id="modal-bulk-count"></span>), Junk (<span id="modal-junk-count"></span>), Fresh (<span id="modal-fresh-count"></span>)</p>
+    
+    <div id="meal-roster-container"></div>
+    
+    <button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="Engine.finishMeal()">Confirm Meals</button>
   </div>
 </div>
-
-<!-- TOASTS -->
-<div id="toast-container"></div>
 
 <script>
 /**
- * BROWNSVILLE SIMULATION ENGINE
- * Refactored for scalable state management and decoupled UI rendering.
+ * ENTITY-COMPONENT STATE ARCHITECTURE
  */
 
-const Facts = [
-  "Over 47% of adults in Brownsville are classified as obese, heavily influenced by regional food deserts.",
-  "Without health insurance, a single emergency room visit for a fever can bankrupt a family earning minimum wage.",
-  "Relying on the B-Metro bus system often turns a 15-minute car commute into a 90-minute multi-transfer ordeal.",
-  "Summer temperatures routinely exceed 100°F. Uninsulated apartments create indoor heat hazards if AC is rationed.",
-  "Ultra-processed shelf-stable foods offer the highest cost-per-calorie, making them a rational economic survival strategy.",
-  "Community mutual aid—like Doña Elena watching the kids—is often the only childcare safety net for shift workers."
-];
-
-// --- 1. STATE MANAGEMENT ---
-const GameState = {
-  day: 1,
-  maxDays: 30,
-  phase: 'morning', // 'morning', 'evening'
-  kids: 2,
-  cash: 0,
-  health: 65,
-  energy: 80,
-  stress: 30,
-  foodMeals: 3,
-  hasMeds: false,
-  eveningPts: 3,
-  rentAmt: 850,
-  rentDue: 7,
-  
-  update(metric, value) {
-    if (this.hasOwnProperty(metric)) {
-      this[metric] += value;
-      // Clamping percentages
-      if (['health', 'energy', 'stress'].includes(metric)) {
-        this[metric] = Math.max(0, Math.min(100, this[metric]));
-      }
-    }
-  },
-
-  checkFailStates() {
-    if (this.health <= 0) return "Hospitalized: Chronic exhaustion caused physical collapse.";
-    if (this.cash < -50) return "Evicted: You ran out of credit and lost your apartment.";
-    if (this.stress >= 100) return "Burnout: Extreme psychological distress forced you to quit working.";
-    return null;
+class Person {
+  constructor(id, name, role, isAdult) {
+    this.id = id;
+    this.name = name;
+    this.role = role;
+    this.isAdult = isAdult;
+    this.health = 80;
+    this.hunger = 20; // 0 = Full, 100 = Starving
   }
+
+  eat(foodType) {
+    if (foodType === 'bulk') { this.hunger = Math.max(0, this.hunger - 60); this.health = Math.min(100, this.health + 5); }
+    if (foodType === 'junk') { this.hunger = Math.max(0, this.hunger - 60); this.health = Math.max(0, this.health - 5); }
+    if (foodType === 'fresh'){ this.hunger = Math.max(0, this.hunger - 80); this.health = Math.min(100, this.health + 10); }
+  }
+
+  processPhase() {
+    this.hunger += 15; // Passively get hungry
+    if (this.hunger >= 90) {
+      this.health -= 10; // Starvation penalty
+    }
+    // Clamp values
+    this.hunger = Math.min(100, Math.max(0, this.hunger));
+    this.health = Math.min(100, Math.max(0, this.health));
+  }
+}
+
+const State = {
+  day: 1,
+  phaseIndex: 0, // 0: Morning, 1: Afternoon, 2: Evening, 3: Night
+  phases: ['Morning', 'Afternoon', 'Evening', 'Night'],
+  times: ['06:00 AM', '12:00 PM', '05:00 PM', '10:00 PM'],
+  
+  cash: 250,
+  globalStress: 30, // 0-100
+  
+  inventory: { bulk: 4, junk: 0, fresh: 0 },
+  
+  jobs: {
+    mc: { wage: 14.50, hours: 8, strikes: 0 },
+    spouse: { wage: 11.00, hours: 5, strikes: 0 }
+  },
+  
+  family: [
+    new Person('mc', 'You', 'Warehouse Worker', true),
+    new Person('spouse', 'Maria', 'Retail Associate', true),
+    new Person('kid1', 'Leo (10)', '5th Grade', false),
+    new Person('kid2', 'Maya (6)', '1st Grade', false)
+  ],
+
+  mandates: [],
+  flags: { fedThisPhase: false, workedToday: false }
 };
 
-// --- 2. UI CONTROLLER ---
-const UI = {
-  renderDashboard() {
-    document.getElementById('ui-day-badge').innerText = `Day ${GameState.day} / ${GameState.maxDays}`;
-    document.getElementById('ui-cash').innerText = `$${GameState.cash.toFixed(2)}`;
-    
-    document.getElementById('ui-health').innerText = `${GameState.health}%`;
-    document.getElementById('bar-health').style.width = `${GameState.health}%`;
-    
-    document.getElementById('ui-energy').innerText = `${GameState.energy}%`;
-    document.getElementById('bar-energy').style.width = `${GameState.energy}%`;
-    
-    document.getElementById('ui-stress').innerText = `${GameState.stress}%`;
-    document.getElementById('bar-stress').style.width = `${GameState.stress}%`;
-    
-    document.getElementById('ui-food-stock').innerText = GameState.foodMeals;
-    document.getElementById('ui-meds-stock').innerText = GameState.hasMeds ? "Yes" : "No";
+/**
+ * SIMULATION ENGINE
+ */
+const Engine = {
+  init() {
+    this.renderAll();
+  },
 
-    const rentDays = GameState.rentDue - GameState.day;
-    const warnEl = document.getElementById('ui-rent-warn');
-    document.getElementById('ui-rent-day').innerText = GameState.rentDue;
-    if (rentDays === 0) warnEl.innerText = "DUE TODAY";
-    else if (rentDays < 3 && rentDays > 0) warnEl.innerText = "DUE SOON";
-    else warnEl.innerText = "";
+  renderAll() {
+    this.renderRoster();
+    this.renderLogistics();
+    this.renderPhase();
+  },
+
+  renderRoster() {
+    const container = document.getElementById('roster-container');
+    container.innerHTML = '';
+    
+    State.family.forEach(person => {
+      let healthColor = person.health > 50 ? 'var(--success)' : 'var(--danger)';
+      let hungerColor = person.hunger < 50 ? 'var(--success)' : 'var(--danger)';
+
+      container.innerHTML += `
+        <div class="family-member">
+          <div class="fm-header">
+            <span class="fm-name">${person.name}</span>
+            <span class="fm-role">${person.role}</span>
+          </div>
+          <div class="stat-row">
+            <span style="width: 55px;">Health</span>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${person.health}%; background: ${healthColor};"></div></div>
+          </div>
+          <div class="stat-row">
+            <span style="width: 55px;">Hunger</span>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${person.hunger}%; background: ${hungerColor};"></div></div>
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById('ui-stress-global').innerHTML = `<i class="fas fa-brain"></i> Stress: ${State.globalStress}%`;
+  },
+
+  renderLogistics() {
+    document.getElementById('ui-cash').innerText = `$${State.cash.toFixed(2)}`;
+    document.getElementById('ui-inv-bulk').innerText = State.inventory.bulk;
+    document.getElementById('ui-inv-junk').innerText = State.inventory.junk;
+    document.getElementById('ui-inv-fresh').innerText = State.inventory.fresh;
+    
+    const strikeVisual = (count) => {
+      let str = '';
+      for(let i=0; i<3; i++) str += i < count ? '[X]' : '[ ]';
+      return str;
+    };
+    document.getElementById('ui-job1-strikes').innerText = strikeVisual(State.jobs.mc.strikes);
+    document.getElementById('ui-job2-strikes').innerText = strikeVisual(State.jobs.spouse.strikes);
   },
 
   renderPhase() {
-    const list = document.getElementById('ui-action-list');
-    list.innerHTML = '';
+    const pName = State.phases[State.phaseIndex];
+    document.getElementById('ui-phase-name').innerText = pName;
+    document.getElementById('ui-day-num').innerText = State.day;
+    document.getElementById('ui-clock').innerText = State.times[State.phaseIndex];
+
+    const actContainer = document.getElementById('action-container');
+    actContainer.innerHTML = '';
     
-    document.getElementById('ui-fact-text').innerText = Facts[GameState.day % Facts.length];
-
-    if (GameState.phase === 'morning') {
-      document.getElementById('ui-phase-title').innerText = "Morning: Logistics Hub Shift";
-      document.getElementById('ui-scenario-desc').innerText = "You have an 8-hour floor shift sorting freight. How hard will you push today?";
-      document.getElementById('ui-points').innerText = "";
-
-      this.createActionBtn("Standard Shift", "Keep a steady pace. +$85", "-25 Energy", () => GameEngine.work('standard'));
-      this.createActionBtn("Double Shift (OT)", "Work a brutal 12-hour shift. +$140", "-50 Energy, +15 Stress", () => GameEngine.work('overtime'));
-      this.createActionBtn("Work & Donate Plasma", "Standard shift, then sell plasma on Southmost Blvd. +$150", "-60 Energy, -10 Health", () => GameEngine.work('plasma'));
+    // Phase Context Matrix
+    if (pName === 'Morning') {
+      document.getElementById('ui-narrative').innerText = "The day begins. You need to clock into the warehouse. Maria will drop the kids at school.";
+      this.addAction("Clock In (8 hrs)", "Earn base wages. -Stress", () => {
+        State.flags.workedToday = true;
+        State.cash += (State.jobs.mc.wage * State.jobs.mc.hours) * 0.85; // post-tax approx
+        this.addMandate("Shift complete. Advance to Afternoon.");
+      });
+      this.addAction("Call Out Sick", "Stay home. +1 Strike.", () => {
+        State.jobs.mc.strikes++;
+        this.addMandate("You missed work. Advance to Afternoon.");
+      });
     } 
-    else if (GameState.phase === 'evening') {
-      document.getElementById('ui-phase-title').innerText = "Evening: Apartment Routine";
-      document.getElementById('ui-scenario-desc').innerText = "The heat is suffocating. You have limited time before the kids need to sleep.";
-      document.getElementById('ui-points').innerText = `${GameState.eveningPts} Action Points`;
-
-      const canCook = GameState.foodMeals >= GameState.kids + 1;
-      
-      this.createActionBtn(
-        "Cook Bulk Meal & Eat", 
-        canCook ? "Feeds family, boosts health." : "Not enough food in pantry!", 
-        "1 Pt | -15 Nrg", 
-        () => GameEngine.eveningAction('cook'), 
-        !canCook
-      );
-      this.createActionBtn("Living Room Calisthenics", "Bodyweight squats/pushups with kids.", "1 Pt | +5 Hlth, -20 Nrg", () => GameEngine.eveningAction('workout'));
-      this.createActionBtn("Guided Meditation & Reading", "Lowers cortisol, resets nerves.", "1 Pt | -20 Stress, +5 Nrg", () => GameEngine.eveningAction('relax'));
-      this.createActionBtn("Sleep Early", "Maximum physical recovery.", "1 Pt | +30 Nrg", () => GameEngine.eveningAction('sleep'));
+    else if (pName === 'Afternoon') {
+      document.getElementById('ui-narrative').innerText = "Lunch break. You can run errands or rest before finishing the shift.";
+      this.addAction("Rest in Breakroom", "-10 Global Stress", () => { State.globalStress -= 10; this.addMandate("Ready to advance."); });
+      this.addAction("HEB Grocery Run", "Buy Bulk Pack ($15 for 6 portions)", () => {
+        if(State.cash >= 15) { State.cash -= 15; State.inventory.bulk += 6; this.renderLogistics(); }
+      });
     }
+    else if (pName === 'Evening') {
+      document.getElementById('ui-narrative').innerText = "The Hand-off. You get home just as Maria leaves for her retail shift. The kids are starving and need help with homework.";
+      // Require feeding
+      if (!State.flags.fedThisPhase) {
+        this.addMandate("FEED_FAMILY");
+      }
+      this.addAction("Open Pantry & Feed Family", "Distribute food portions.", () => this.openMealModal());
+      this.addAction("Help Leo with Math", "Lowers family stress.", () => { State.globalStress -= 15; });
+    }
+    else if (pName === 'Night') {
+      document.getElementById('ui-narrative').innerText = "Maria returns from work. The apartment is quiet. Time to sleep and recover.";
+      State.cash += (State.jobs.spouse.wage * State.jobs.spouse.hours) * 0.85; // Spouse night income
+      this.addAction("Sleep (AC Off)", "Saves money, poor sleep.", () => { State.globalStress += 5; this.addMandate("Ready for next day."); });
+      this.addAction("Sleep (AC On)", "Costs $10, great sleep.", () => { State.cash -= 10; State.globalStress -= 15; this.addMandate("Ready for next day."); });
+    }
+
+    this.checkMandates();
+    this.renderAll(); // recursive render to update stats based on buttons pressed
   },
 
-  createActionBtn(title, effects, costStr, onClick, disabled = false) {
+  addAction(title, subtitle, onClick) {
     const btn = document.createElement('button');
-    btn.className = 'action-btn';
-    btn.disabled = disabled;
-    btn.innerHTML = `
-      <div>
-        <div class="action-title">${title}</div>
-        <div class="action-effects">${effects}</div>
-      </div>
-      <div class="action-cost">${costStr}</div>
-    `;
-    btn.onclick = onClick;
-    document.getElementById('ui-action-list').appendChild(btn);
+    btn.className = 'btn';
+    btn.innerHTML = `<div><strong>${title}</strong><div style="font-size:0.8rem; color:var(--text-muted);">${subtitle}</div></div>`;
+    btn.onclick = () => { onClick(); this.renderPhase(); }; // Re-render to clear buttons/update states
+    document.getElementById('action-container').appendChild(btn);
   },
 
-  toast(msg, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const t = document.createElement('div');
-    t.className = 'toast';
-    if (type === 'error') t.style.borderLeftColor = 'var(--danger)';
-    if (type === 'success') t.style.borderLeftColor = 'var(--success)';
-    t.innerText = msg;
-    container.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
+  addMandate(code) {
+    if (!State.mandates.includes(code)) State.mandates.push(code);
+  },
+  
+  removeMandate(code) {
+    State.mandates = State.mandates.filter(m => m !== code);
   },
 
-  showModal(title, desc, options) {
-    const modal = document.getElementById('event-modal');
-    document.getElementById('modal-title').innerText = title;
-    document.getElementById('modal-desc').innerText = desc;
+  checkMandates() {
+    const box = document.getElementById('mandate-container');
+    const list = document.getElementById('mandate-list');
+    const advBtn = document.getElementById('btn-advance');
     
-    const actionBox = document.getElementById('modal-actions');
-    actionBox.innerHTML = '';
+    list.innerHTML = '';
+    let isBlocked = false;
+
+    if (State.mandates.includes("FEED_FAMILY")) {
+      list.innerHTML += `<li>Must feed the family before advancing.</li>`;
+      isBlocked = true;
+    }
+
+    if (isBlocked) {
+      box.style.display = 'block';
+      advBtn.disabled = true;
+    } else {
+      box.style.display = 'none';
+      advBtn.disabled = false;
+    }
+  },
+
+  // --- MODAL LOGIC FOR FEEDING ---
+  openMealModal() {
+    document.getElementById('meal-modal').style.display = 'flex';
+    this.updateModalUI();
+  },
+
+  updateModalUI() {
+    document.getElementById('modal-bulk-count').innerText = State.inventory.bulk;
+    document.getElementById('modal-junk-count').innerText = State.inventory.junk;
+    document.getElementById('modal-fresh-count').innerText = State.inventory.fresh;
     
-    options.forEach(opt => {
-      const btn = document.createElement('button');
-      btn.className = 'action-btn';
-      btn.innerHTML = `<div><div class="action-title">${opt.text}</div></div>`;
-      btn.onclick = () => { opt.action(); modal.style.display = 'none'; };
-      actionBox.appendChild(btn);
+    const container = document.getElementById('meal-roster-container');
+    container.innerHTML = '';
+
+    State.family.forEach(person => {
+      let hungerTxt = person.hunger > 70 ? '(Starving)' : person.hunger > 30 ? '(Hungry)' : '(Full)';
+      container.innerHTML += `
+        <div class="feed-row">
+          <div><strong>${person.name}</strong> <span style="font-size:0.8rem;">${hungerTxt}</span></div>
+          <div class="feed-controls">
+            <button class="btn-food" onclick="Engine.feedPerson('${person.id}', 'bulk')" ${State.inventory.bulk < 1 ? 'disabled':''}>Bulk</button>
+            <button class="btn-food" onclick="Engine.feedPerson('${person.id}', 'junk')" ${State.inventory.junk < 1 ? 'disabled':''}>Junk</button>
+            <button class="btn-food" onclick="Engine.feedPerson('${person.id}', 'fresh')" ${State.inventory.fresh < 1 ? 'disabled':''}>Fresh</button>
+          </div>
+        </div>
+      `;
     });
+  },
+
+  feedPerson(personId, foodType) {
+    if (State.inventory[foodType] > 0) {
+      State.inventory[foodType]--;
+      let person = State.family.find(p => p.id === personId);
+      person.eat(foodType);
+      this.updateModalUI();
+      this.renderRoster(); // Update bars in background
+    }
+  },
+
+  finishMeal() {
+    document.getElementById('meal-modal').style.display = 'none';
+    this.removeMandate("FEED_FAMILY");
+    State.flags.fedThisPhase = true;
+    this.renderPhase();
+  },
+
+  advancePhase() {
+    // Process physical toll of the phase passing
+    State.family.forEach(p => p.processPhase());
     
-    modal.style.display = 'flex';
+    State.phaseIndex++;
+    
+    // Day cycle wrap
+    if (State.phaseIndex >= State.phases.length) {
+      State.phaseIndex = 0;
+      State.day++;
+      State.flags.fedThisPhase = false;
+      State.flags.workedToday = false;
+      State.mandates = []; // clear old mandates
+    }
+    
+    // Check game over
+    if (State.jobs.mc.strikes >= 3) {
+      alert("GAME OVER: You were terminated from your warehouse job.");
+      return location.reload();
+    }
+
+    this.renderAll();
   }
 };
 
-// --- 3. GAME ENGINE ---
-const GameEngine = {
-  init() {
-    const diff = document.getElementById('diff-select').value;
-    GameState.kids = parseInt(document.getElementById('kids-select').value);
-    
-    GameState.cash = diff === 'hard' ? 85 : 350;
-    GameState.health = diff === 'hard' ? 45 : 65;
-    
-    document.getElementById('screen-start').classList.remove('active');
-    document.getElementById('screen-game').classList.add('active');
-    
-    UI.toast("Simulation Started. Don't miss rent.", "success");
-    this.refresh();
-  },
-
-  refresh() {
-    const failMsg = GameState.checkFailStates();
-    if (failMsg) {
-      alert("GAME OVER\n\n" + failMsg);
-      location.reload();
-      return;
-    }
-    UI.renderDashboard();
-    UI.renderPhase();
-  },
-
-  buy(type, cost, meals) {
-    if (GameState.cash < cost) return UI.toast("Insufficient funds!", "error");
-    
-    GameState.update('cash', -cost);
-    
-    if (type === 'meds') {
-      GameState.hasMeds = true;
-      UI.toast("Purchased OTC Medicine.", "success");
-    } else {
-      GameState.update('foodMeals', meals);
-      if (type === 'junk') GameState.update('health', -5);
-      if (type === 'fresh') GameState.update('health', +5);
-      UI.toast(`Purchased ${meals} meals.`, "success");
-    }
-    this.refresh();
-  },
-
-  work(type) {
-    if (type === 'standard') { GameState.update('cash', 85); GameState.update('energy', -25); }
-    if (type === 'overtime') { GameState.update('cash', 140); GameState.update('energy', -50); GameState.update('stress', 15); }
-    if (type === 'plasma')   { GameState.update('cash', 150); GameState.update('energy', -60); GameState.update('health', -10); }
-    
-    GameState.phase = 'evening';
-    GameState.eveningPts = 3;
-    UI.toast("Shift completed.");
-    this.refresh();
-  },
-
-  eveningAction(action) {
-    if (action === 'cook') {
-      GameState.update('foodMeals', -(GameState.kids + 1));
-      GameState.update('health', 6);
-      GameState.update('energy', -15);
-      UI.toast("Cooked family meal.");
-    }
-    if (action === 'workout') {
-      GameState.update('health', 5);
-      GameState.update('energy', -20);
-      GameState.update('stress', -10);
-      UI.toast("Completed home workout.");
-    }
-    if (action === 'relax') {
-      GameState.update('stress', -20);
-      GameState.update('energy', 5);
-      UI.toast("Mindfulness lowered stress.");
-    }
-    if (action === 'sleep') {
-      GameState.update('energy', 30);
-      GameState.update('stress', -5);
-      UI.toast("Extra sleep restored energy.");
-    }
-
-    GameState.eveningPts--;
-    
-    if (GameState.eveningPts <= 0) {
-      this.endDay();
-    } else {
-      this.refresh();
-    }
-  },
-
-  endDay() {
-    // Rent logic
-    if (GameState.day === GameState.rentDue) {
-      if (GameState.cash >= GameState.rentAmt) {
-        GameState.update('cash', -GameState.rentAmt);
-        GameState.rentDue += 30;
-        UI.toast(`Rent of $${GameState.rentAmt} paid!`, "success");
-      } else {
-        GameState.update('cash', -GameState.rentAmt); // Forces negative cash (eviction next check)
-        GameState.update('stress', 40);
-        UI.toast("MISSED RENT! Eviction looming.", "error");
-      }
-    }
-
-    // Trigger Random Event or move to next day
-    if (GameState.day % 4 === 0) {
-      this.fireEvent();
-    } else {
-      this.nextDay();
-    }
-  },
-
-  fireEvent() {
-    const events = [
-      {
-        title: "South Texas Heatwave",
-        desc: "Temperatures hit 102°F. Your apartment is sweltering. Running the window AC will spike your bill.",
-        options: [
-          { text: "Run AC (-$40)", action: () => { GameState.update('cash', -40); GameState.update('stress', -5); this.nextDay(); } },
-          { text: "Sweat it out (-25 Energy)", action: () => { GameState.update('energy', -25); GameState.update('stress', 15); this.nextDay(); } }
-        ]
-      },
-      {
-        title: "Child Sick with Fever",
-        desc: "School policy forbids attendance. Doña Elena can watch them, but only if you provide medicine.",
-        options: [
-          { text: "Give Meds & Go to Work", action: () => { 
-              if (GameState.hasMeds) { GameState.hasMeds = false; UI.toast("Meds used."); this.nextDay(); } 
-              else { UI.toast("You don't have meds! Forced to stay home.", "error"); GameState.update('cash', -85); GameState.update('stress', 20); this.nextDay(); }
-          }},
-          { text: "Call in Sick (Lose Shift Pay)", action: () => { GameState.update('cash', -85); GameState.update('stress', 10); this.nextDay(); } }
-        ]
-      },
-      {
-        title: "Car Trouble (Serpentine Belt)",
-        desc: "Your 2004 sedan broke down on Boca Chica Blvd. You must fix it or rely on the B-Metro bus.",
-        options: [
-          { text: "Pay Mechanic (-$120)", action: () => { GameState.update('cash', -120); this.nextDay(); } },
-          { text: "Take Bus (-20 Nrg daily commute)", action: () => { GameState.update('energy', -30); GameState.update('stress', 20); this.nextDay(); } }
-        ]
-      }
-    ];
-
-    const ev = events[Math.floor(Math.random() * events.length)];
-    UI.showModal(ev.title, ev.desc, ev.options);
-  },
-
-  nextDay() {
-    GameState.day++;
-    if (GameState.day > GameState.maxDays) {
-      alert(`VICTORY!\nYou survived 30 days.\nEnding Cash: $${GameState.cash}\nEnding Health: ${GameState.health}%`);
-      location.reload();
-      return;
-    }
-    
-    // Base overnight recovery
-    GameState.update('energy', 25);
-    GameState.phase = 'morning';
-    
-    this.refresh();
-  }
-};
+// Start the engine
+Engine.init();
 </script>
 </body>
 </html>
